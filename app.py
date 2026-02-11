@@ -6,7 +6,7 @@ import uuid
 import random
 
 # 1. ตั้งค่าหน้าเว็บ
-st.set_page_config(page_title="TPRS Magic Wheel V59.0", layout="wide")
+st.set_page_config(page_title="TPRS Magic Wheel V59.1", layout="wide")
 
 # 2. Session State
 if 'display_text' not in st.session_state:
@@ -24,8 +24,8 @@ PAST_TO_INF = {
     "cut": "cut", "put": "put", "hit": "hit", "read": "read", "cost": "cost"
 }
 
-# รายการคำนามพหูพจน์ไม่ปกติ (Irregular Plural Nouns)
-IRR_PL = ["children", "people", "men", "women", "mice", "teeth", "feet", "geese", "oxen"]
+# เพิ่ม mice, teeth, feet, geese, oxen, data, media เพื่อความครอบคลุม
+IRR_PL = ["children", "people", "men", "women", "mice", "teeth", "feet", "geese", "oxen", "data", "media"]
 
 def is_present_perfect(predicate):
     words = predicate.lower().split()
@@ -44,7 +44,7 @@ def check_tense_type(predicate):
     return "present"
 
 def conjugate_singular(predicate):
-    """ฟังก์ชันสำหรับคำถาม Who: เติม s/es ให้กริยาหลักใน Present Tense"""
+    """ฟังก์ชันสำหรับ Who (คงเดิม): เติม s/es ให้กริยา"""
     words = predicate.split()
     if not words: return ""
     v = words[0].lower(); rest = " ".join(words[1:])
@@ -55,16 +55,25 @@ def conjugate_singular(predicate):
 
 def get_auxiliary(subject, pred_target, pred_other):
     if is_present_perfect(pred_target): return None 
-    tense_target = check_tense_type(pred_target)
-    tense_other = check_tense_type(pred_other)
-    if tense_target == "past" or tense_other == "past":
+    
+    # 1. เช็ค Past Tense
+    if check_tense_type(pred_target) == "past" or check_tense_type(pred_other) == "past":
         return "Did"
     
-    s = subject.lower().strip()
-    # ตรวจสอบ Irregular Plural หรือเงื่อนไขพหูพจน์
-    is_plural = (s in IRR_PL or 'and' in s or s in ['i', 'you', 'we', 'they'] or 
-                 (s.endswith('s') and s not in ['james', 'charles', 'boss']))
-    return "Do" if is_plural else "Does"
+    # 2. เช็ค Subject (Present Tense)
+    s_clean = subject.lower().strip()
+    s_words = s_clean.split() # แยกคำ เช่น "the children" -> ["the", "children"]
+    
+    # Logic: ถ้ามีคำใดคำหนึ่งในประธาน ตรงกับ Irregular Plural List ให้ถือเป็นพหูพจน์
+    found_irregular = any(word in IRR_PL for word in s_words)
+    
+    if (found_irregular or 
+        'and' in s_clean or 
+        s_clean in ['i', 'you', 'we', 'they'] or 
+        (s_clean.endswith('s') and s_clean not in ['james', 'charles', 'boss'])):
+        return "Do"
+        
+    return "Does"
 
 def to_infinitive(predicate, other_predicate):
     words = predicate.split()
@@ -99,8 +108,11 @@ def build_logic(q_type, data):
     if q_type == "Negative":
         if has_be_verb(pred_t) or is_present_perfect(pred_t):
             return f"No, {subj_t} {pred_t.split()[0]} not {' '.join(pred_t.split()[1:])}."
+        
+        # แก้ไขให้ใช้ don't / doesn't / didn't
         aux = get_auxiliary(subj_t, pred_t, pred_r)
-        return f"No, {subj_t} {aux.lower()} not {to_infinitive(pred_t, pred_r)}."
+        neg_word = "don't" if aux == "Do" else ("doesn't" if aux == "Does" else "didn't")
+        return f"No, {subj_t} {neg_word} {to_infinitive(pred_t, pred_r)}."
 
     if q_type == "Yes-Q":
         if has_be_verb(pred_r) or is_present_perfect(pred_r): return swap(subj_r, pred_r) + "?"
@@ -150,7 +162,7 @@ def play_voice(text):
     except: pass
 
 # --- UI ---
-st.title("🎡 TPRS Magic Wheel V59.0")
+st.title("🎡 TPRS Magic Wheel V59.1")
 m_in = st.text_input("📝 Main Sentence", "The children make a cake.")
 c1, c2 = st.columns(2)
 with c1: sr, pr = st.text_input("Subject (R):", "The children"), st.text_input("Predicate (R):", "make a cake")
