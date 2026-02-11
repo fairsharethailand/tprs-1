@@ -6,7 +6,7 @@ import uuid
 import random
 
 # 1. ตั้งค่าหน้าเว็บ
-st.set_page_config(page_title="TPRS Magic Wheel V58.3 (Updated Logic)", layout="wide")
+st.set_page_config(page_title="TPRS Magic Wheel V58.3 (Fixed)", layout="wide")
 
 # 2. Session State
 if 'display_text' not in st.session_state:
@@ -48,39 +48,29 @@ def check_tense_type(predicate):
     return "unknown"
 
 def conjugate_to_singular(predicate):
-    """เปลี่ยน Verb ให้เป็นรูปเอกพจน์ (เติม s/es) สำหรับคำถาม Who"""
+    """เปลี่ยน Verb ให้เป็นรูปเอกพจน์สำหรับ Who Question"""
     words = predicate.split()
     if not words: return ""
     v = words[0].lower()
     rest = " ".join(words[1:])
-    
-    # ถ้าลงท้ายด้วย s/es อยู่แล้ว หรือเป็น Past ไม่ต้องแก้
     if v.endswith('s') or check_tense_type(v) == "past":
         return predicate
-
-    # กฎการเติม s/es เบื้องต้น
     if v.endswith(('ch', 'sh', 'x', 's', 'z', 'o')):
         v = v + "es"
-    elif v.endswith('y') and v[-2] not in 'aeiou':
+    elif v.endswith('y') and len(v) > 1 and v[-2] not in 'aeiou':
         v = v[:-1] + "ies"
     else:
         v = v + "s"
-    
     return f"{v} {rest}".strip()
 
 def get_auxiliary(subject, pred_target, pred_other):
     if is_present_perfect(pred_target):
         return None 
-    
     tense_target = check_tense_type(pred_target)
     tense_other = check_tense_type(pred_other)
-    
     if tense_target == "past" or tense_other == "past":
         return "Did"
-    
-    # Logic สำหรับ Present Tense (Do/Does)
     s = subject.lower().strip()
-    # เช็ค Irregular Plural หรือสรรพนามพหูพจน์
     if s in IRREGULAR_PLURALS or 'and' in s or s in ['i', 'you', 'we', 'they'] or (s.endswith('s') and s not in ['james', 'charles', 'boss']):
         return "Do"
     return "Does"
@@ -91,7 +81,6 @@ def to_infinitive(predicate, other_predicate):
     v = words[0].lower().strip()
     rest = " ".join(words[1:])
     is_past = (check_tense_type(predicate) == "past" or check_tense_type(other_predicate) == "past")
-    
     if is_past or v in ['had', 'has', 'have']:
         if v in ['had', 'has', 'have']: inf_v = "have"
         elif v in PAST_TO_INF: inf_v = PAST_TO_INF[v]
@@ -128,32 +117,23 @@ def build_logic(q_type, data):
         return f"{parts[0].capitalize()} {s} {' '.join(parts[1:])}".strip().replace("  ", " ")
 
     if q_type == "Statement": return main_sent
-    
     if q_type == "Negative":
         if has_be_verb(pred_trick) or is_present_perfect(pred_trick):
             parts = pred_trick.split()
             return f"No, {subj_trick} {parts[0]} not {' '.join(parts[1:])}."
         aux = get_auxiliary(subj_trick, pred_trick, pred_real)
         return f"No, {subj_trick} {aux.lower()} not {to_infinitive(pred_trick, pred_real)}."
-
     if q_type == "Yes-Q":
         if has_be_verb(pred_real) or is_present_perfect(pred_real): return swap_front(subj_real, pred_real) + "?"
         aux = get_auxiliary(subj_real, pred_real, pred_trick)
         return f"{aux} {subj_real} {to_infinitive(pred_real, pred_trick)}?"
-
     if q_type == "No-Q":
         if has_be_verb(pred_trick) or is_present_perfect(pred_trick): return swap_front(subj_trick, pred_trick) + "?"
         aux = get_auxiliary(subj_trick, pred_trick, pred_real)
         return f"{aux} {subj_trick} {to_infinitive(pred_trick, pred_real)}?"
-
+    
     if q_type == "Either/Or":
         if s2 != "-" and s1.lower().strip() != s2.lower().strip():
             if has_be_verb(pred_real) or is_present_perfect(pred_real):
-                v_f = pred_real.split()[0].capitalize(); v_r = " ".join(pred_real.split()[1:])
-                return f"{v_f} {subj_real} or {subj_trick} {v_r}?"
-            aux = get_auxiliary(subj_real, pred_real, pred_trick)
-            return f"{aux} {subj_real} or {subj_trick} {to_infinitive(pred_real, pred_trick)}?"
-        else:
-            p_alt = p2 if p2 != "-" else "something else"
-            if has_be_verb(pred_real) or is_present_perfect(pred_real): return f"{swap_front(subj_real, pred_real)} or {p_alt}?"
-            aux = get_auxiliary(subj_real, pred_real, p
+                v_parts = pred_real.split()
+                return f"{v_
